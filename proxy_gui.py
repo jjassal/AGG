@@ -21,7 +21,7 @@ import collections
 from urlparse import urlparse
 import socket
 import re
-
+from simplejson.decoder import JSONDecodeError
 def startServer(userkey,ua,req_cookie,set_cookie,**kwargs):
     
     
@@ -257,18 +257,25 @@ class AuthHelper():
 
         req0=AuthHelper.req0_seq%(generateMd5(),generateMd5(),user_key)
         #print req0
-        resp0=requests.post("http://zc2.ayakashi.zynga.com/zj_game.json?authentication=none&manager=shared", data=req0,headers={"User-Agent":"Mozilla/5.0 ZMTransaction/1.0","X-User-Key":user_key})
+        try:
+            resp0=requests.post("http://zc2.ayakashi.zynga.com/zj_game.json?authentication=none&manager=shared", data=req0,headers={"User-Agent":"Mozilla/5.0 ZMTransaction/1.0","X-User-Key":user_key})
         # print resp0.content
-        if resp0.content.find('"Status":"OK"'):
-            req1=AuthHelper.req1_seq%(generateMd5(),user_key)
-            resp1=requests.post("http://zc2.ayakashi.zynga.com/zj_game.json?authentication=none&manager=shared", data=req1,headers={"User-Agent":"Mozilla/5.0 ZMTransaction/1.0","X-User-Key":user_key})
-            # print resp1.content
-            if resp1.json().get(u"responses")  and resp1.json().get(u"responses").get(u"1") and  resp1.json().get(u"responses").get(u"1").get(u"ZJSESSIONID"):
-                zjsessionid=str(resp1.json().get(u"responses").get(u"1").get(u"ZJSESSIONID"))
-                # print zjsessionid
-                resp3=requests.get("http://zc2.ayakashi.zynga.com/app.php?_c=ZJLogin&action=GetCookie&next=Entry.start&ZJSESSIONID="+zjsessionid,headers={"User-Agent":"Mozilla/5.0 (iPhone; CPU iPhone OS 7_0_4 like Mac OS X) AppleWebKit/537.51.1 (KHTML, like Gecko) Mobile/11B554a ZyngaBundleIdentifier/com.zynga.zjayakashi.0 ZyngaBundleVersion/2.9.0"})
-                return [resp3.request.headers.get("cookie",""),resp3.history[0].headers.get("set-cookie","")]
-        
+            if resp0.content.find('"Status":"OK"'):
+                req1=AuthHelper.req1_seq%(generateMd5(),user_key)
+                resp1=requests.post("http://zc2.ayakashi.zynga.com/zj_game.json?authentication=none&manager=shared", data=req1,headers={"User-Agent":"Mozilla/5.0 ZMTransaction/1.0","X-User-Key":user_key})
+                # print resp1.content
+                if resp1.json().get(u"responses")  and resp1.json().get(u"responses").get(u"1") and  resp1.json().get(u"responses").get(u"1").get(u"ZJSESSIONID"):
+                    zjsessionid=str(resp1.json().get(u"responses").get(u"1").get(u"ZJSESSIONID"))
+                    resp3=requests.get("http://zc2.ayakashi.zynga.com/app.php?_c=ZJLogin&action=GetCookie&next=Entry.start&ZJSESSIONID="+zjsessionid,headers={"User-Agent":"Mozilla/5.0 (iPhone; CPU iPhone OS 7_0_4 like Mac OS X) AppleWebKit/537.51.1 (KHTML, like Gecko) Mobile/11B554a ZyngaBundleIdentifier/com.zynga.zjayakashi.0 ZyngaBundleVersion/2.9.0"})
+                    return [resp3.request.headers.get("cookie",""),resp3.history[0].headers.get("set-cookie","")]
+        except JSONDecodeError:
+            pass
+        except (requests.RequestException,requests.ConnectionError,requests.HTTPError):
+            pass
+        except socket.error:
+            pass
+
+
         return ["",""] #For QStringList
                 
 
@@ -319,6 +326,7 @@ class MainWindow(QtGui.QWidget):
 
     def on_Button_GETKEY_Clicked(self):
         self.ui.Button_GETKEY.setEnabled(False)
+        self.ui.Label_INFO.setText(u"正在监听端口12346")
         self.getuserkeyworker=GetUserKeyWorker()
         self.getuserkeyworker.start()
         self.connect(self.getuserkeyworker,QtCore.SIGNAL("GetUserKey(QString)"),self.afterGetUserKey)
@@ -328,8 +336,10 @@ class MainWindow(QtGui.QWidget):
     def on_Button_USERKEY_Clicked(self):
         if not self.ui.LineEdit_USERKEY.text().isEmpty():
             self.ui.LineEdit_USERKEY.setEnabled(False)
+
             self.ui.Label_INFO.setText(u"验证账号中")
             self.ui.Button_USERKEY.setEnabled(False)
+            self.ui.Button_GETKEY.setEnabled(False)
             self.validateworker=ValidateWorker(self.ui.LineEdit_USERKEY.text())
             self.validateworker.start()
             self.connect(self.validateworker,QtCore.SIGNAL("validate(QStringList)"),self.afterValidate)
@@ -337,7 +347,6 @@ class MainWindow(QtGui.QWidget):
     def afterGetUserKey(self,userkey):
         self.ui.LineEdit_USERKEY.setText(userkey)
         self.ui.Button_USERKEY.click()
-        
         pass
 
     def afterValidate(self,stringList):
@@ -349,6 +358,7 @@ class MainWindow(QtGui.QWidget):
         if self.set_cookie=="" or self.req_cookie=="":
             self.ui.Label_INFO.setText(u"验证失败")
             self.ui.Button_USERKEY.setEnabled(True)
+            self.ui.Button_GETKEY.setEnabled(True)
             self.ui.LineEdit_USERKEY.setEnabled(True)
         else:
             self.ui.Label_INFO.setText(u"验证完毕")
