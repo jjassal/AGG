@@ -272,7 +272,23 @@ class AuthHelper():
         return ["",""] #For QStringList
                 
 
+class GetUserKeyWorker(QtCore.QThread):
 
+    def run(self):
+        self.userkey_pattern=re.compile(r'X-User-Key: (\w*)',re.I)        
+        uSocket=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        uSocket.bind(("0.0.0.0",12346))  #all interface!
+        uSocket.listen(1)
+        while 1:
+            (recvSocket,_)=uSocket.accept()
+            raw=recvSocket.recv(65536)
+            result=self.userkey_pattern.findall(raw)
+            if result:
+                self.emit(QtCore.SIGNAL("GetUserKey(QString)"),result[0])                
+                break
+        uSocket.close()
+        pass
+    
 
 
 class ValidateWorker(QtCore.QThread):
@@ -294,7 +310,7 @@ class MainWindow(QtGui.QWidget):
 
         self.ui.Button_USERKEY.clicked.connect(self.on_Button_USERKEY_Clicked)
         self.ui.Button_GETKEY.clicked.connect(self.on_Button_GETKEY_Clicked)
-        self.ui.LineEdit_USERKEY.setText("86cbb0f770854622874dd3222cb6243c")
+        #self.ui.LineEdit_USERKEY.setText("86cbb0f770854622874dd3222cb6243c")
         self.worker=ThreadWorker() #Key
         # self.connect(self.worker,QtCore.SIGNAL("ret(QString)"))
         # self.worker.start()
@@ -302,7 +318,11 @@ class MainWindow(QtGui.QWidget):
         self.show()
 
     def on_Button_GETKEY_Clicked(self):
-
+        self.ui.Button_GETKEY.setEnabled(False)
+        self.getuserkeyworker=GetUserKeyWorker()
+        self.getuserkeyworker.start()
+        self.connect(self.getuserkeyworker,QtCore.SIGNAL("GetUserKey(QString)"),self.afterGetUserKey)
+        
         pass
 
     def on_Button_USERKEY_Clicked(self):
@@ -313,7 +333,12 @@ class MainWindow(QtGui.QWidget):
             self.validateworker=ValidateWorker(self.ui.LineEdit_USERKEY.text())
             self.validateworker.start()
             self.connect(self.validateworker,QtCore.SIGNAL("validate(QStringList)"),self.afterValidate)
-            
+    
+    def afterGetUserKey(self,userkey):
+        self.ui.LineEdit_USERKEY.setText(userkey)
+        self.ui.Button_USERKEY.click()
+        
+        pass
 
     def afterValidate(self,stringList):
         self.req_cookie=str(stringList[0])
@@ -332,6 +357,7 @@ class MainWindow(QtGui.QWidget):
             self.worker.set_cookie=self.set_cookie
             self.worker.start()
             self.ui.Label_INFO.setText(u"Binding 127.0.0.1:12345")
+            self.ui.LineEdit_USERKEY.setEnabled(True)
 
 
 
