@@ -410,7 +410,6 @@ class MainWindow(QtGui.QWidget):
 
 
 if __name__=="__main__":
-    #AuthHelper.authRequest("86cbb0f770854622874dd3222cb6243c")
     app=QtGui.QApplication(sys.argv)
     # app.setWindowIcon(QtGui.QIcon("icon.png"))
     w=MainWindow()

@@ -11,9 +11,20 @@ option={
         "compressed":1,
         "optimize":2,
         "bundle_files":1,
-        "includes":["sip",]
+        "includes":["sip",],
+        "excludes":['_ssl','pyreadline','difflib', 'doctest', 'optparse', 'pickle'],
+        
     }
 }
 
-setup(windows=["proxy_gui.py"],options=option,zipfile=None)
+setup(
+    name="Ayakashi",
+    windows=[{
+
+    "script":"AyakashiProxy.py",
+    # "icon_resources": [(0, "icon.png")]
+    }],
+    options=option,
+    # zipfile=None
+    )
 
